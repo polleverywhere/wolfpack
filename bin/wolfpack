@@ -1,0 +1,3 @@
+#!/usr/bin/env ruby
+require 'wolfpack'
+Wolfpack::CLI.start
