@@ -1,16 +1,20 @@
 require "wolfpack/version"
 require "thor"
 require "parallel"
-require "erb"
 
 module Wolfpack
+  # Gets the number of "processors" on the current machine. This does not map
+  # directly to physical cores. For example, a hyperthreaded Intel chip may 
+  # have 2 physical cores but show up as 4 cores.
   def self.processor_count
     @processor_count ||= Parallel.processor_count
   end
 
   # Configure a runner instance
   class Configurator
-    # Configures the instance of a given runner.
+    attr_reader :runner
+
+    # Configures the instance of a given runner with a file.
     def initialize(runner, config_path)
       @runner = runner
       instance_eval(File.read(config_path), config_path)
@@ -24,12 +28,16 @@ module Wolfpack
     #   ENV['DATABASE_URL'] = "#{ENV['DATABASE_URL']}_#{n}"
     # end
     def after_fork(&block)
-      @runner.class.send :define_method, :after_fork, &block
+      runner.after_fork = block
     end
   end
 
   # Encapsulates a command that is te be split up and run.
   class Runner
+    attr_accessor :after_fork, :command, :args
+
+    # Create a command that will run with the give arguments. Optionally
+    # a path may be given to a configuration file that sets up a runner.
     def initialize(command, args = [], config_path = nil)
       @command, @args = command, args
       configure(config_path) if config_path
@@ -42,13 +50,13 @@ module Wolfpack
       # make sure we have a number to work with.
       processes ||= Wolfpack.processor_count
 
-      # Split args into groups of n processes
-      args = partition @args, processes
+      # Split args into groups of n processes.
+      partions = partition(args, processes)
 
       # Now run the command with the processes.
-      Parallel.each_with_index(args, :in_processes => processes) do |args, n|
-        after_fork n
-        system ERB.new(@command).result(Struct.new(:args).new(:args => args).send(:binding))
+      Parallel.each_with_index(partions, :in_processes => processes) do |args, n|
+        after_fork.call(n, args) if after_fork
+        system @command
       end
     end
 
@@ -56,10 +64,6 @@ module Wolfpack
     # the ruby.
     def configure(config_path)
       Configurator.new(self, config_path)
-    end
-
-    # Stub for callback that the runner calls between requests.
-    def after_fork(n)
     end
 
   private
@@ -77,12 +81,23 @@ module Wolfpack
     desc "exec COMMAND", "Runs many tasks in parallel"
     method_options %w( config -c ) => :string
     method_options %w( processes -n ) => :integer
+    method_options %w( args -a ) => :array
     def exec(command)
       # Parse out an integer for the # of processors the user specifies since
       # thor doesn't return an integer for its params.
       processes = options[:processes].to_i if options[:processes]
 
-      args = STDIN.read.split
+      # Process stdin that's piped in.
+      args = if $stdin.tty?
+        options[:args] || []
+      else
+        # Read from the pipe
+        buffer = ""
+        until $stdin.eof? do
+          buffer << $stdin.read
+        end
+        buffer.lines
+      end
 
       # If args are passed in, read those and split, otherwise read stdin 
       # from a pipe and split by lines.
