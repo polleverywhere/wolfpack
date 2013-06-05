@@ -23,5 +23,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "guard-rspec"
 
   spec.add_dependency "thor"
-  spec.add_dependency "facter"
+  spec.add_dependency "parallel"
 end
