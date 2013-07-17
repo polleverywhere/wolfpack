@@ -1,10 +1,11 @@
 require "wolfpack/version"
 require "thor"
 require "parallel"
+require "timeout"
 
 module Wolfpack
   # Gets the number of "processors" on the current machine. This does not map
-  # directly to physical cores. For example, a hyperthreaded Intel chip may 
+  # directly to physical cores. For example, a hyperthreaded Intel chip may
   # have 2 physical cores but show up as 4 cores.
   def self.processor_count
     @processor_count ||= Parallel.processor_count
@@ -20,7 +21,7 @@ module Wolfpack
       instance_eval(File.read(config_path), config_path)
     end
 
-    # Replace the instances after_fork hook with after_fork 
+    # Replace the instances after_fork hook with after_fork
     # from the configuration file.
     #
     # @example
@@ -93,13 +94,21 @@ module Wolfpack
       else
         # Read from the pipe
         buffer = ""
-        until $stdin.eof? do
-          buffer << $stdin.read
+
+        begin
+          ::Timeout::timeout(2) do
+            until $stdin.eof? do
+              buffer << $stdin.read
+            end
+          end
+        rescue ::Timeout::Error
+          puts "Timeout reading from STDIN. Continuing..."
         end
+
         buffer.lines
       end
 
-      # If args are passed in, read those and split, otherwise read stdin 
+      # If args are passed in, read those and split, otherwise read stdin
       # from a pipe and split by lines.
 
       Wolfpack::Runner.new(command, args, options[:config]).run(processes)
