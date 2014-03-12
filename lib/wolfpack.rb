@@ -11,6 +11,9 @@ module Wolfpack
     @processor_count ||= Parallel.processor_count
   end
 
+  # Wait 10 seconds before blowing up if stdio isn't reading any data.
+  STDIN_READ_TIMEOUT = 10
+
   # Configure a runner instance
   class Configurator
     attr_reader :runner
@@ -88,29 +91,28 @@ module Wolfpack
       # thor doesn't return an integer for its params.
       processes = options[:processes].to_i if options[:processes]
 
-      # Process stdin that's piped in.
-      args = if $stdin.tty?
-        options[:args] || []
-      else
-        # Read from the pipe
-        buffer = ""
+      # If args are passed in, just use those.
+      args = options[:args]
 
-        begin
-          ::Timeout::timeout(2) do
+      # Otherwise read stdin from a pipe and split by lines.
+      if args.nil?
+        # Process stdin that's piped in.
+        if $stdin.tty?
+          args = [] # Screw it, lets return an empty array of args.
+        else
+          # Read from the pipe
+          buffer = ""
+
+          Timeout::timeout STDIN_READ_TIMEOUT do
             until $stdin.eof? do
               buffer << $stdin.read
             end
           end
-        rescue ::Timeout::Error
-          puts "Timeout reading from STDIN. Continuing..."
+
+          args = buffer.lines
         end
-
-        buffer.lines
       end
-
-      # If args are passed in, read those and split, otherwise read stdin
-      # from a pipe and split by lines.
-
+      
       Wolfpack::Runner.new(command, args, options[:config]).run(processes)
     end
 
