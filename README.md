@@ -58,7 +58,9 @@ Then run wolfpack with the config file.
 ```sh
 # Running the wolfpack command on a 4 processor machine. Your machine might 
 # run with a different number of workers depending on processors.
-$ find spec/**/**_spec.rb | wolfpack run 'echo "Using $DATABASE_URL"; rake db:create db:schema:load; rspec $SPEC_FILES;' -c config/wolfpack.rb
+$ wolfpack run 'echo "Using $DATABASE_URL"; rake db:create db:schema:load; rspec $SPEC_FILES;' \
+    -c config/wolfpack.rb
+    --args `find spec/**/**_spec.rb`
 Using mysql2://localhost/app_test_0
 Using mysql2://localhost/app_test_1
 Using mysql2://localhost/app_test_2
