@@ -73,7 +73,9 @@ module Wolfpack
       arr.each_with_index do |el, idx|
         result[idx % n].push el
       end
-      result
+
+      # Return only partitions with data in them
+      result.reject{|a| a.empty?}
     end
   end
 
