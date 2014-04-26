@@ -38,7 +38,7 @@ module Wolfpack
 
     # Create a command that will run with the give arguments. Optionally
     # a path may be given to a configuration file that sets up a runner.
-    def initialize(command, args = [], config_path = nil)
+    def initialize(command, args, config_path = nil)
       @command, @args = command, args
       configure(config_path) if config_path
     end
@@ -50,8 +50,9 @@ module Wolfpack
       # make sure we have a number to work with.
       processes ||= Wolfpack.processor_count
 
-      # Split args into groups of n processes.
-      partions = partition(args, processes)
+      # If arguments exist then split args into groups of n processes.
+      # Otherwise run commands on every runner
+      partions = args ? partition(args, processes) : Array.new(processes){[]}
 
       # Now run the command with the processes.
       Parallel.each_with_index(partions, :in_processes => processes) do |args, n|
@@ -89,10 +90,7 @@ module Wolfpack
       # thor doesn't return an integer for its params.
       processes = options[:processes].to_i if options[:processes]
 
-      # If args are passed in, just use those.
-      args = options[:args] || []
-
-      Wolfpack::Runner.new(command, args, options[:config]).run(processes)
+      Wolfpack::Runner.new(command, options[:args], options[:config]).run(processes)
     end
 
     desc "version", "Wolfpack version"
