@@ -57,7 +57,7 @@ module Wolfpack
       # Now run the command with the processes.
       Parallel.each_with_index(partions, :in_processes => processes) do |args, n|
         after_fork.call(n, args) if after_fork
-        system @command
+        raise "#{command.inspect} failed" unless system @command
       end
     end
 
