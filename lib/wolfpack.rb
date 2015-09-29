@@ -55,10 +55,12 @@ module Wolfpack
       partions = args ? partition(args, processes) : Array.new(processes){[]}
 
       # Now run the command with the processes.
-      Parallel.each_with_index(partions, :in_processes => processes) do |args, n|
+      successes = Parallel.map_with_index(partions, :in_processes => processes) do |args, n|
         after_fork.call(n, args) if after_fork
         system @command
       end
+
+      successes.all?
     end
 
     # Configures the runner's by reading a configuration file and eval-ing
@@ -85,12 +87,16 @@ module Wolfpack
     method_options %w( config -c ) => :string
     method_options %w( processes -n ) => :integer
     method_options %w( args -a ) => :array
+
+    RETURN_CODE_SUCCESS = 0
+    RETURN_CODE_FAILURE = 1
     def exec(command)
       # Parse out an integer for the # of processors the user specifies since
       # thor doesn't return an integer for its params.
       processes = options[:processes].to_i if options[:processes]
 
-      Wolfpack::Runner.new(command, options[:args], options[:config]).run(processes)
+      success = Wolfpack::Runner.new(command, options[:args], options[:config]).run(processes)
+      exit(success ? RETURN_CODE_SUCCESS : RETURN_CODE_FAILURE)
     end
 
     desc "version", "Wolfpack version"
