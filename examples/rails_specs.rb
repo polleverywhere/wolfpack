@@ -14,7 +14,7 @@ after_fork do |n, args|
 
   # We'll feed in a list of specs that we want to run from stdin,
   # concat with a space, and output into an ENV var that rspec will pick up.
-  ENV['SPEC_FILES'] = args.join(' ')
+  ENV['SPEC_FILES'] = args.map(&:chomp).join(" ")
 
   # And whatever else you need to deal with...
 end
@@ -23,7 +23,7 @@ __END__
 
 Now you're ready to run this! Try something like this on your CLI:
 
-$ bundle exec wolfpack exec "rake db:setup rake db:schema:load; rspec $SPEC_FILES;"
+$ bundle exec wolfpack exec "rake db:setup db:schema:load; rspec $SPEC_FILES;"
 
 and you're off to the races! In practice its probably not that easy though because
 specs are generally not developed initially with concurrency in mind.
