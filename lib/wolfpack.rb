@@ -49,17 +49,24 @@ module Wolfpack
       # Sometimes a nil will make it here because of the CLI. This will
       # make sure we have a number to work with.
       processes ||= Wolfpack.processor_count
+      puts "WolfpackDebug processes: #{processes}"
 
       # If arguments exist then split args into groups of n processes.
       # Otherwise run commands on every runner
       partions = args ? partition(args, processes) : Array.new(processes){[]}
+      puts "WolfpackDebug partions: #{partions.inspect}"
 
       # Now run the command with the processes.
       successes = Parallel.map_with_index(partions, :in_processes => processes) do |args, n|
+        puts "WolfpackDebug ##{n} starting..."
         after_fork.call(n, args) if after_fork
-        system @command
+        puts "WolfpackDebug ##{n} calling after_fork with args: #{args})"
+        success = system @command
+        puts "WolfpackDebug ##{n} success: #{success}"
+        success
       end
 
+      puts "WolfpackDebug successes: #{successes.inspect} (all? #{successes.all?}"
       successes.all?
     end
 
@@ -96,6 +103,7 @@ module Wolfpack
       processes = options[:processes].to_i if options[:processes]
 
       success = Wolfpack::Runner.new(command, options[:args], options[:config]).run(processes)
+      puts "WolfpackDebug command: #{command}, options: #{options.inspect}, success: #{success}"
       exit(success ? RETURN_CODE_SUCCESS : RETURN_CODE_FAILURE)
     end
 
